@@ -44,10 +44,11 @@ public class NotificationScheduler {
                 .forEach(newsName -> {
 
                     List<NewsNotificationDto> notificationDtos = notificationService.getAllNewsInfo(newsName);
-                    List<String> memberEmails = memberService.findEmailsByDailySubscribedNews(newsName);
 
-                    if (!notificationDtos.isEmpty())
+                    if (!notificationDtos.isEmpty()) {
+                        List<String> memberEmails = memberService.findEmailsByDailySubscribedNews(newsName);
                         sendNewsToMember(memberEmails, newsName, notificationDtos);
+                    }
                 });
     }
 
