@@ -53,6 +53,7 @@ public class YutopiaCrawlingStrategy implements CrawlingStrategy {
         return postElement.selectFirst("a").absUrl("href");
     }
 
+    @Override
     public List<String> getSubscribedMembers(String newsName) {
         return memberService.findEmailsBySubscribedNews(newsName);
     }

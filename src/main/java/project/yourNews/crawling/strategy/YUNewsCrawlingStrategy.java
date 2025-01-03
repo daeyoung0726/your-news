@@ -75,6 +75,7 @@ public class YUNewsCrawlingStrategy implements CrawlingStrategy{
         return titleElement.absUrl("href");
     }
 
+    @Override
     public List<String> getSubscribedMembers(String newsName) {
         String messageContent = MESSAGE_PREFIX + postTitle;
         Message message = Message.builder()
