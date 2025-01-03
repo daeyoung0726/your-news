@@ -17,7 +17,8 @@ public class DefaultCrawlingStrategy implements CrawlingStrategy {
     private final MemberService memberService;
     private final URLHistoryService urlHistoryService;
 
-    private static final List<String> EXCLUDED_NEWS_NAME = List.of("YuTopia(비교과)", "영대소식", "반도체특성화대학");
+    private static final List<String> EXCLUDED_NEWS_NAME =
+            List.of("YuTopia(비교과)", "영대소식", "반도체특성화대학", "AI/SW트랙");
 
     @Override
     public String getScheduledTime() {

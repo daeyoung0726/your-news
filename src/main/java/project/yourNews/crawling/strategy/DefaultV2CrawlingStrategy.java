@@ -17,7 +17,7 @@ public class DefaultV2CrawlingStrategy implements CrawlingStrategy {
     private final MemberService memberService;
     private final URLHistoryService urlHistoryService;
 
-    private static final List<String> NEWS_NAME = List.of("반도체특성화대학");
+    private static final List<String> NEWS_NAME = List.of("반도체특성화대학", "AI/SW트랙");
 
     @Override
     public String getScheduledTime() {
