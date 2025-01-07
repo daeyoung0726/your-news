@@ -43,24 +43,20 @@ public class NewsMailService {
     public void sendMail(EmailRequest emailRequest) {
         String email = emailRequest.getSubscriber();
 
-        try {
-            String emailUsername = email.split("@")[0];
-            String emailContent = MailContentBuilder.buildRegularMailContent(
-                    emailRequest.getContent(),
-                    unsubscribeLink,
-                    emailUsername
-            );
+        String emailUsername = email.split("@")[0];
+        String emailContent = MailContentBuilder.buildRegularMailContent(
+                emailRequest.getContent(),
+                unsubscribeLink,
+                emailUsername
+        );
 
-            sendStibeeEmail(
-                    StibeeRequest.builder()
-                            .subscriber(email)
-                            .title(emailRequest.getTitle())
-                            .content(emailContent)
-                            .build()
-            );
-        } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", email, e.getMessage(), e);
-        }
+        sendStibeeEmail(
+                StibeeRequest.builder()
+                        .subscriber(email)
+                        .title(emailRequest.getTitle())
+                        .content(emailContent)
+                        .build()
+        );
     }
 
     /* 스티비 API를 사용하여 이메일 보내기 */
