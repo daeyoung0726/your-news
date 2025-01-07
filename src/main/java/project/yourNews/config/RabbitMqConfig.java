@@ -4,6 +4,7 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -33,7 +34,17 @@ public class RabbitMqConfig {
     /* Queue를 생성하는 Bean을 정의 */
     @Bean
     public Queue queue() {
-        return new Queue(queueName, true);
+        return QueueBuilder.durable(queueName)
+                .withArgument("x-dead-letter-exchange", exchangeName) // Dead Letter Exchange 설정
+                .withArgument("x-dead-letter-routing-key", routingKey + ".dlq") // Dead Letter Routing Key 설정
+                .withArgument("x-message-ttl", 5000) // 메시지 TTL: 5초
+                .build();
+    }
+
+    /* Dead Letter Queue를 생성 */
+    @Bean
+    public Queue deadLetterQueue() {
+        return new Queue(queueName + ".dlq", true);
     }
 
     /* 지정된 Exchange 이름으로 Direct Exchange Bean 을 생성 */
@@ -46,6 +57,12 @@ public class RabbitMqConfig {
     @Bean
     public Binding binding(Queue queue, DirectExchange exchange) {
         return BindingBuilder.bind(queue).to(exchange).with(routingKey);
+    }
+
+    /* Dead Letter Queue와 Exchange를 라우팅 키로 바인딩 */
+    @Bean
+    public Binding deadLetterBinding(DirectExchange exchange, Queue deadLetterQueue) {
+        return BindingBuilder.bind(deadLetterQueue).to(exchange).with(routingKey + ".dlq");
     }
 
     /*  RabbitTemplate을 생성하는 Bean을 정의. 메시지 컨버터를 설정 */
@@ -84,9 +101,9 @@ public class RabbitMqConfig {
     @Bean
     public StatefulRetryOperationsInterceptor retryInterceptor() {
         return RetryInterceptorBuilder.stateful()
-                .maxAttempts(5)         // 재시도 5번
-                .backOffOptions(1000, 2.0, 10000)  // 사적 1초 / 2배씩 늘어남 / 최대 10초
-                .recoverer(new RejectAndDontRequeueRecoverer())     // 재시도 실패 시 재큐하지 x
+                .maxAttempts(3)
+                .backOffOptions(2000, 2.0, 8000)
+                .recoverer(new RejectAndDontRequeueRecoverer()) // 실패 시 재큐하지 않음
                 .build();
     }
 
