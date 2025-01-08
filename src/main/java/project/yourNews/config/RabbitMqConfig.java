@@ -1,24 +1,25 @@
 package project.yourNews.config;
 
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.AcknowledgeMode;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
-import org.springframework.amqp.rabbit.listener.adapter.MessageListenerAdapter;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.retry.interceptor.StatefulRetryOperationsInterceptor;
-import project.yourNews.common.mail.mail.service.NewsMailService;
+import org.springframework.retry.interceptor.RetryOperationsInterceptor;
 
+@Slf4j
 @Configuration
 public class RabbitMqConfig {
 
@@ -37,7 +38,6 @@ public class RabbitMqConfig {
         return QueueBuilder.durable(queueName)
                 .withArgument("x-dead-letter-exchange", exchangeName) // Dead Letter Exchange 설정
                 .withArgument("x-dead-letter-routing-key", routingKey + ".dlq") // Dead Letter Routing Key 설정
-                .withArgument("x-message-ttl", 5000) // 메시지 TTL: 5초
                 .build();
     }
 
@@ -61,7 +61,7 @@ public class RabbitMqConfig {
 
     /* Dead Letter Queue와 Exchange를 라우팅 키로 바인딩 */
     @Bean
-    public Binding deadLetterBinding(DirectExchange exchange, Queue deadLetterQueue) {
+    public Binding deadLetterBinding(Queue deadLetterQueue, DirectExchange exchange) {
         return BindingBuilder.bind(deadLetterQueue).to(exchange).with(routingKey + ".dlq");
     }
 
@@ -73,37 +73,28 @@ public class RabbitMqConfig {
         return rabbitTemplate;
     }
 
-    /* 메시지 리스너 컨테이너를 생성하는 Bean을 정의. 메시지를 큐에서 소비하는 역할 */
     @Bean
-    public SimpleMessageListenerContainer container(ConnectionFactory connectionFactory,
-                                                    MessageListenerAdapter listenerAdapter) {
-        SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
-        container.setConnectionFactory(connectionFactory);
-        container.setQueueNames(queueName);
-        container.setMessageListener(listenerAdapter);
-
-        container.setConcurrentConsumers(2);
-        container.setMaxConcurrentConsumers(2);
-        container.setPrefetchCount(5);
-        container.setAdviceChain(retryInterceptor());
-        return container;
-    }
-
-    /* 메시지 리스너 어댑터를 생성하는 Bean을 정의. 특정 메서드에 메시지를 위임 */
-    @Bean
-    public MessageListenerAdapter listenerAdapter(NewsMailService newsMailService) {
-        MessageListenerAdapter adapter = new MessageListenerAdapter(newsMailService, "sendMail");
-        adapter.setMessageConverter(jackson2JsonMessageConverter());
-        return adapter;
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(jackson2JsonMessageConverter());
+        factory.setConcurrentConsumers(2);
+        factory.setMaxConcurrentConsumers(2);
+        factory.setPrefetchCount(5);
+        factory.setAdviceChain(retryInterceptor());
+        factory.setAcknowledgeMode(AcknowledgeMode.AUTO);
+        return factory;
     }
 
     /* 메시지 처리 재시도 횟수 */
-    @Bean
-    public StatefulRetryOperationsInterceptor retryInterceptor() {
-        return RetryInterceptorBuilder.stateful()
+    public RetryOperationsInterceptor retryInterceptor() {
+        return RetryInterceptorBuilder.stateless()
                 .maxAttempts(3)
                 .backOffOptions(2000, 2.0, 8000)
-                .recoverer(new RejectAndDontRequeueRecoverer()) // 실패 시 재큐하지 않음
+                .recoverer((message, cause) -> {
+                    log.error("Message failed after retries: {}. Cause: {}", message, cause.getMessage(), cause);
+                    new RejectAndDontRequeueRecoverer().recover(message, cause);
+                })
                 .build();
     }
 
