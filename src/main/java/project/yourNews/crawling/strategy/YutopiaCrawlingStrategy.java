@@ -28,7 +28,7 @@ public class YutopiaCrawlingStrategy implements CrawlingStrategy {
 
     @Override
     public boolean canHandle(String newsName) {
-        return newsName.equals(NEWS_NAME);
+        return NEWS_NAME.equals(newsName);
     }
 
     @Override
