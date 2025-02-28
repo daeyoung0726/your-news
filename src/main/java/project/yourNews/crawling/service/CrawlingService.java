@@ -7,24 +7,23 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
-import project.yourNews.common.mail.mail.MailContentBuilder;
-import project.yourNews.common.mail.mail.util.MailProperties;
-import project.yourNews.crawling.dto.EmailRequest;
+import project.yourNews.common.mail.mail.service.NewsEmailSender;
 import project.yourNews.crawling.strategy.CrawlingStrategy;
+import project.yourNews.crawling.strategy.JobCrawlingStrategy;
 import project.yourNews.crawling.strategy.YUNewsCrawlingStrategy;
 import project.yourNews.crawling.strategy.YutopiaCrawlingStrategy;
 import project.yourNews.domains.news.dto.NewsInfoDto;
 import project.yourNews.domains.news.service.NewsService;
+import project.yourNews.domains.notification.dto.NewsListDto;
 import project.yourNews.domains.notification.service.NotificationService;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.TimeZone;
 
@@ -35,18 +34,12 @@ import java.util.TimeZone;
 public class CrawlingService {
 
     private final NewsService newsService;
-    private final RabbitTemplate rabbitTemplate;
     private final List<CrawlingStrategy> strategies;
     private final TaskScheduler taskScheduler;
     private final NotificationService notificationService;
+    private final NewsEmailSender newsEmailSender;
 
     private static final int MAX_RETRIES = 2;
-
-    @Value("${rabbitmq.exchange.name}")
-    private String exchangeName;
-
-    @Value("${rabbitmq.routing.key}")
-    private String routingKey;
 
     @PostConstruct
     public void scheduleCrawlingTasks() {
@@ -90,8 +83,13 @@ public class CrawlingService {
 
                 // isYUNews 여부에 따라 처리 방식 분리
                 if (strategy instanceof YUNewsCrawlingStrategy) {
+                    System.out.println(123);
                     processYUNewsPosts(postElements, (YUNewsCrawlingStrategy) strategy, newsName);
+                } else if (strategy instanceof JobCrawlingStrategy) {
+                    System.out.println(456);
+                    processJobNewsPosts(postElements, (JobCrawlingStrategy) strategy, newsName);
                 } else {
+                    System.out.println(789);
                     processOtherNewsPosts(postElements, strategy, newsName);
                 }
 
@@ -126,11 +124,33 @@ public class CrawlingService {
                     strategy.setCurrentPostElement(postTitle);
                     List<String> memberEmails = strategy.getSubscribedMembers(newsName);
 
-                    sendNewsToMember(memberEmails, newsName, postTitle, postURL);
+                    newsEmailSender.sendNewsToMember(memberEmails, newsName, postTitle, postURL);
                     strategy.saveURL(postURL);
                 }
             }
         }
+    }
+
+    /* 크롤링 전략이 JobNews 일 시. */
+    private void processJobNewsPosts(Elements postElements, JobCrawlingStrategy strategy, String newsName) {
+
+        List<NewsListDto> newsListDtos = new ArrayList<>();
+
+        for (Element postElement : postElements) {
+            if (strategy.shouldProcessElement(postElement)) {
+                String postTitle = strategy.extractPostTitle(postElement);
+                String postURL = strategy.extractPostURL(postElement);
+
+                if (!strategy.isExisted(postURL)) {
+                    notificationService.saveNewsInfo(newsName, postTitle, postURL);
+                    newsListDtos.add(new NewsListDto(postTitle, postURL));
+                    strategy.saveURL(postURL);
+                }
+            }
+        }
+
+        List<String> memberEmails = strategy.getSubscribedMembers(newsName);
+        newsEmailSender.sendNewsToMember(memberEmails, newsName, newsListDtos);
     }
 
     /* 크롤링 전략이 YUNews 아닐 시. */
@@ -145,24 +165,9 @@ public class CrawlingService {
 
                 if (!strategy.isExisted(postURL)) {
                     notificationService.saveNewsInfo(newsName, postTitle, postURL);
-                    sendNewsToMember(memberEmails, newsName, postTitle, postURL);
+                    newsEmailSender.sendNewsToMember(memberEmails, newsName, postTitle, postURL);
                     strategy.saveURL(postURL);
                 }
-            }
-        }
-    }
-
-    /* 소식 구독자에게 메일 보내기 */
-    private void sendNewsToMember(List<String> memberEmails, String newsName, String postTitle, String postURL) {
-        String mailContent = MailContentBuilder.buildNewsMailContent(newsName, postTitle, postURL);
-
-        for (String email : memberEmails) {
-            EmailRequest emailRequest = new EmailRequest(email, MailProperties.NEWS_SUBJECT, mailContent);
-
-            try {
-                rabbitTemplate.convertAndSend(exchangeName, routingKey, emailRequest);
-            } catch (Exception e) {
-                log.error("Failed to send email request to RabbitMQ : {}", newsName, e);
             }
         }
     }
