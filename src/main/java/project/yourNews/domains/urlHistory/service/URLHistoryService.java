@@ -32,6 +32,14 @@ public class URLHistoryService {
         redisUtil.expire(key, YU_URL_EXPIRATION_TIME);
     }
 
+    /* 취업처 url 저장하기 */
+    public void saveJobURL(String url, long ttl) {
+
+        String key = URL_HISTORY_KEY_PREFIX + url;
+        redisUtil.set(key, url);
+        redisUtil.expire(key, ttl);
+    }
+
     /* 이미 보낸 소식인지 확인 */
     public boolean existsURLCheck(String url) {
 
