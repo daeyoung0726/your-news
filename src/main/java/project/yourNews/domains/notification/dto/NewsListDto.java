@@ -8,7 +8,7 @@ import lombok.Setter;
 @Getter @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class NewsNotificationDto {
+public class NewsListDto {
 
     private String postTitle;
     private String postURL;
