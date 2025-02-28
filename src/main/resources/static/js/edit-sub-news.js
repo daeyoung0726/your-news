@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const news3Select = document.getElementById('news3');
     const news4Select = document.getElementById('news4');
     const news5Select = document.getElementById('news5');
+    const news6Select = document.getElementById('news6');
     const updateNewsButton = document.getElementById('updateNewsButton');
     const responseMessage = document.createElement('div');
     const accessToken = localStorage.getItem('accessToken');
@@ -77,6 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     let option5 = document.createElement('option');
                     option5.text = news.newsName;
                     news5Select.add(option5);
+
+                    let option6 = document.createElement('option');
+                    option6.text = news.newsName;
+                    news6Select.add(option6);
                 }
             });
         })
@@ -89,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const news3 = document.getElementById('news3').value;
         const news4 = document.getElementById('news4').value;
         const news5 = document.getElementById('news5').value;
+        const news6 = document.getElementById('news6').value;
 
         const newsNamesSet = new Set();
         const keywords = [];
@@ -97,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (news3) newsNamesSet.add(news3);
         if (news4) newsNamesSet.add(news4);
         if (news5) newsNamesSet.add(news5);
+        if (news6) newsNamesSet.add(news6);
 
         const newsNames = Array.from(newsNamesSet);
 
