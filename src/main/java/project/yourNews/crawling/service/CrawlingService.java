@@ -149,8 +149,10 @@ public class CrawlingService {
             }
         }
 
-        List<String> memberEmails = strategy.getSubscribedMembers(newsName);
-        newsEmailSender.sendNewsToMember(memberEmails, newsName, newsListDtos);
+        if (!newsListDtos.isEmpty()) {
+            List<String> memberEmails = strategy.getSubscribedMembers(newsName);
+            newsEmailSender.sendNewsToMember(memberEmails, newsName, newsListDtos);
+        }
     }
 
     /* 크롤링 전략이 YUNews 아닐 시. */
