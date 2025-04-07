@@ -83,13 +83,10 @@ public class CrawlingService {
 
                 // isYUNews 여부에 따라 처리 방식 분리
                 if (strategy instanceof YUNewsCrawlingStrategy) {
-                    System.out.println(123);
                     processYUNewsPosts(postElements, (YUNewsCrawlingStrategy) strategy, newsName);
                 } else if (strategy instanceof JobCrawlingStrategy) {
-                    System.out.println(456);
                     processJobNewsPosts(postElements, (JobCrawlingStrategy) strategy, newsName);
                 } else {
-                    System.out.println(789);
                     processOtherNewsPosts(postElements, strategy, newsName);
                 }
 
